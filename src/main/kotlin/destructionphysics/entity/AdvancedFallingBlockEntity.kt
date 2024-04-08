@@ -190,6 +190,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         if (!hasNoGravity()) {
             velocity = velocity.add(0.0, -0.04, 0.0)
         }
+        val yVelocity = velocity.y
         move(MovementType.SELF, velocity)
         if (!world.isClient) {
             var blockPos = blockPos
@@ -202,8 +203,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             }
             if (isOnGround || shouldConvert) {
                 // custom movement
-                // TODO: slide based on velocity and chance?
-                if (!shouldConvert && slide()) {
+                if (!shouldConvert && (yVelocity < -0.4 || random.nextFloat() < 0.95f) && slide()) {
                     isOnGround = false
                     return
                 }
