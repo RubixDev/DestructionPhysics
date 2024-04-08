@@ -175,7 +175,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             val dirVec = Direction.fromHorizontal(slideDirection.toInt()).vector
             setPosition(
                 pos.x + dirVec.x.toDouble() / 5.0,
-                pos.y - (slideProgress * 0.1),
+                pos.y - (slideProgress.minus(1).coerceAtLeast(0) * 0.1),
                 pos.z + dirVec.z.toDouble() / 5.0,
             )
 
@@ -183,7 +183,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             if (slideProgress.toInt() >= 4) {
                 slideProgress = -1
                 slideDirection = -1
-                velocity = Vec3d(0.0, -0.4, 0.0)
+                velocity = Vec3d(0.0, -0.3, 0.0)
             }
             return
         }
