@@ -3,6 +3,7 @@
   "package": "destructionphysics.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AbstractBlockMixin",
     "FallingBlockMixin",
     "accessor.ConcretePowderBlockAccessor"
   ],

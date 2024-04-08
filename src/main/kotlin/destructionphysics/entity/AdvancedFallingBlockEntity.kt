@@ -46,6 +46,8 @@ import net.minecraft.world.RaycastContext
 import net.minecraft.world.World
 import net.minecraft.world.WorldEvents
 import net.minecraft.world.event.GameEvent
+import net.minecraft.world.explosion.Explosion
+import kotlin.math.exp
 import kotlin.math.min
 
 class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(type, world) {
@@ -71,6 +73,16 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 entity.setHurtEntities(2f, 40)
             }
 
+            return entity
+        }
+
+        @JvmStatic
+        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity {
+            val entity = spawnFromBlock(world, pos, state)
+            val flyDirection = entity.pos.subtract(explosion.position)
+            println("AAAAAA ${explosion.position} || ${entity.pos}")
+            // TODO: div by 0 check?
+            entity.addVelocity(flyDirection.normalize().multiply(3 / flyDirection.length()).also { println("BB $it") })
             return entity
         }
     }
