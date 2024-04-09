@@ -58,8 +58,8 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         private val SLIDE_COUNT = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.INTEGER)
 
         @JvmStatic
-        fun spawnFromBlock(world: World, pos: BlockPos, state: BlockState): AdvancedFallingBlockEntity {
-            LOGGER.info("spawning advanced falling block entity for block state '$state' at '$pos'")
+        fun createFromBlock(world: World, pos: BlockPos, state: BlockState): AdvancedFallingBlockEntity {
+            LOGGER.debug("creating advanced falling block entity for block state '{}' at '{}'", state, pos)
             val entity = AdvancedFallingBlockEntity(
                 world,
                 pos.x.toDouble() + 0.5,
@@ -67,8 +67,6 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 pos.z.toDouble() + 0.5,
                 if (state.contains(Properties.WATERLOGGED)) state.with(Properties.WATERLOGGED, false) else state,
             )
-            world.setBlockState(pos, state.fluidState.blockState, Block.NOTIFY_ALL)
-            world.spawnEntity(entity)
 
             if (state.block is AnvilBlock) {
                 entity.setHurtEntities(2f, 40)
@@ -78,13 +76,27 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         }
 
         @JvmStatic
-        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity {
-            val entity = spawnFromBlock(world, pos, state)
-            val flyDirection = entity.pos.subtract(explosion.position)
-            println("AAAAAA ${explosion.position} || ${entity.pos}")
-            // TODO: div by 0 check?
-            entity.addVelocity(flyDirection.normalize().multiply(3 / flyDirection.length()).also { println("BB $it") })
+        @JvmOverloads
+        fun spawnFromBlock(
+            world: World,
+            pos: BlockPos,
+            state: BlockState,
+            entityMutator: AdvancedFallingBlockEntity.() -> Unit = {},
+        ): AdvancedFallingBlockEntity {
+            val entity = createFromBlock(world, pos, state)
+            entityMutator(entity)
+            world.setBlockState(pos, state.fluidState.blockState, Block.NOTIFY_ALL)
+            world.spawnEntity(entity)
             return entity
+        }
+
+        @JvmStatic
+        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity {
+            return spawnFromBlock(world, pos, state) {
+                val flyDirection = this.pos.subtract(explosion.position)
+                // TODO: div by 0 check?
+                addVelocity(flyDirection.normalize().multiply(3 / flyDirection.length()))
+            }
         }
     }
 
@@ -164,6 +176,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         super.onSpawnPacket(packet)
         block = Block.getStateFromRawId(packet.entityData)
         setPosition(packet.x, packet.y, packet.z)
+        setVelocity(packet.velocityX, packet.velocityY, packet.velocityZ)
         slidePos = blockPos
     }
 
