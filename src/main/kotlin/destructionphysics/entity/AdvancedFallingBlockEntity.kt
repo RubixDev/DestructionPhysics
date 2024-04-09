@@ -55,6 +55,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         private val SLIDE_POS = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.BLOCK_POS)
         private val SLIDE_DIRECTION = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.BYTE)
         private val SLIDE_PROGRESS = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.BYTE)
+        private val SLIDE_COUNT = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.INTEGER)
 
         @JvmStatic
         fun spawnFromBlock(world: World, pos: BlockPos, state: BlockState): AdvancedFallingBlockEntity {
@@ -98,6 +99,9 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     var slideProgress: Byte
         get() = dataTracker.get(SLIDE_PROGRESS)
         private set(value) = dataTracker.set(SLIDE_PROGRESS, value)
+    var slideCount: Int
+        get() = dataTracker.get(SLIDE_COUNT)
+        private set(value) = dataTracker.set(SLIDE_COUNT, value)
     var timeFalling = 0
     var dropItem = true
     private var destroyedOnLanding = false
@@ -121,6 +125,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         dataTracker.startTracking(SLIDE_POS, BlockPos.ORIGIN)
         dataTracker.startTracking(SLIDE_DIRECTION, -1)
         dataTracker.startTracking(SLIDE_PROGRESS, -1)
+        dataTracker.startTracking(SLIDE_COUNT, 0)
     }
 
     override fun readCustomDataFromNbt(nbt: NbtCompound) {
@@ -215,8 +220,9 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             }
             if (isOnGround || shouldConvert) {
                 // custom movement
-                if (!shouldConvert && (yVelocity < -0.4 || random.nextFloat() < 0.95f) && slide()) {
+                if (!shouldConvert && (yVelocity < -0.4 || random.nextFloat() < 1f / ((slideCount / 80f) + 1f)) && slide()) {
                     isOnGround = false
+                    slideCount++
                     return
                 }
 
