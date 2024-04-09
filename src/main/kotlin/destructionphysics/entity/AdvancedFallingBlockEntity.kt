@@ -11,7 +11,9 @@ import net.minecraft.block.BrushableBlock
 import net.minecraft.block.ConcretePowderBlock
 import net.minecraft.block.FallingBlock
 import net.minecraft.block.LandingBlock
+import net.minecraft.block.PistonBlock
 import net.minecraft.block.PointedDripstoneBlock
+import net.minecraft.block.TntBlock
 import net.minecraft.entity.Entity
 import net.minecraft.entity.EntityType
 import net.minecraft.entity.MovementType
@@ -90,7 +92,8 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         }
 
         @JvmStatic
-        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity {
+        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity? {
+            if (state.block is TntBlock || !PistonBlock.isMovable(state, world, pos, Direction.NORTH, true, Direction.NORTH)) return null
             return spawnFromBlock(world, pos, state) {
                 val flyDirection = this.pos.subtract(explosion.position)
                 // TODO: div by 0 check?
