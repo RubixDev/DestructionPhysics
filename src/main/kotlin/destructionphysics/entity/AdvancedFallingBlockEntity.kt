@@ -47,7 +47,6 @@ import net.minecraft.world.World
 import net.minecraft.world.WorldEvents
 import net.minecraft.world.event.GameEvent
 import net.minecraft.world.explosion.Explosion
-import kotlin.math.exp
 import kotlin.math.min
 
 class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(type, world) {
@@ -105,19 +104,18 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     var slidePos: BlockPos
         get() = dataTracker.get(SLIDE_POS)
         private set(value) = dataTracker.set(SLIDE_POS, value)
-    var slideDirection: Byte
+    private var slideDirection: Byte
         get() = dataTracker.get(SLIDE_DIRECTION)
         private set(value) = dataTracker.set(SLIDE_DIRECTION, value)
-    var slideProgress: Byte
+    private var slideProgress: Byte
         get() = dataTracker.get(SLIDE_PROGRESS)
         private set(value) = dataTracker.set(SLIDE_PROGRESS, value)
-    var slideCount: Int
+    private var slideCount: Int
         get() = dataTracker.get(SLIDE_COUNT)
         private set(value) = dataTracker.set(SLIDE_COUNT, value)
-    var timeFalling = 0
-    var dropItem = true
+    private var timeFalling = 0
+    private var dropItem = true
     private var destroyedOnLanding = false
-//    var blockEntityData: NbtCompound? = null
     private var hurtEntities = false
     private var fallHurtAmount = 0f
     private var fallHurtMax = 40
@@ -154,7 +152,6 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         } else if (block.isIn(BlockTags.ANVIL)) {
             hurtEntities = true
         }
-        // TODO: read nbt
     }
 
     override fun writeCustomDataToNbt(nbt: NbtCompound) {
@@ -165,7 +162,6 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         nbt.putBoolean("HurtEntities", hurtEntities)
         nbt.putFloat("FallHurtAmount", fallHurtAmount)
         nbt.putInt("FallHurtMax", fallHurtMax)
-        // TODO: write nbt
     }
 
     override fun createSpawnPacket(): Packet<ClientPlayPacketListener> {
@@ -193,7 +189,6 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     }
 
     override fun tick() {
-        // TODO: new movement
         if (block.isAir) {
             discard()
             return
@@ -294,11 +289,8 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 val endState = world.getBlockState(endPos)
                 if (canReplace(endState, endPos)) {
                     slideDirection = direction.horizontal.toByte()
-                    if (!world.isClient) {
-                        slidePos = blockPos
-                        // TODO: syncData
-                        return true
-                    }
+                    slidePos = blockPos
+                    return true
                 }
             }
         }
