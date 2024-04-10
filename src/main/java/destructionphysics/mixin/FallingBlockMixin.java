@@ -1,7 +1,6 @@
 package destructionphysics.mixin;
 
 import destructionphysics.entity.AdvancedFallingBlockEntity;
-import net.minecraft.block.AnvilBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FallingBlock;
 import net.minecraft.server.world.ServerWorld;

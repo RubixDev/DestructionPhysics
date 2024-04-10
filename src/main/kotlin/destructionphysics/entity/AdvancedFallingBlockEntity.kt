@@ -102,6 +102,17 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 DestructionPhysics.causeNeighboringToFall(world, pos)
             }
         }
+
+        @JvmStatic
+        fun spawnFromFire(world: World, pos: BlockPos, state: BlockState, onFire: Boolean): AdvancedFallingBlockEntity? {
+            if (!FallingBlock.canFallThrough(world.getBlockState(pos.down()))) return null
+            if (!state.canFall(world, pos)) return null
+            val entity = createFromBlock(world, pos, state)
+            if (onFire) entity.setOnFireFor(100)
+            world.spawnEntity(entity)
+            DestructionPhysics.causeNeighboringToFall(world, pos)
+            return entity
+        }
     }
 
     var block: BlockState = Blocks.SAND.defaultState
@@ -170,12 +181,13 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     }
 
     override fun createSpawnPacket(): Packet<ClientPlayPacketListener> {
-        return EntitySpawnS2CPacket(this, Block.getRawIdFromState(block))
+        return EntitySpawnS2CPacket(this, Block.getRawIdFromState(block).shl(1).or(if (isOnFire) 1 else 0))
     }
 
     override fun onSpawnPacket(packet: EntitySpawnS2CPacket) {
         super.onSpawnPacket(packet)
-        block = Block.getStateFromRawId(packet.entityData)
+        if (packet.entityData.and(1) == 1) setOnFireFor(100)
+        block = Block.getStateFromRawId(packet.entityData.shr(1))
         setPosition(packet.x, packet.y, packet.z)
         setVelocity(packet.velocityX, packet.velocityY, packet.velocityZ)
         slidePos = blockPos
@@ -184,7 +196,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     override fun isAttackable(): Boolean = false
     override fun getMoveEffect(): MoveEffect = MoveEffect.NONE
     override fun canHit(): Boolean = !isRemoved
-    override fun doesRenderOnFire(): Boolean = false
+    override fun doesRenderOnFire(): Boolean = isOnFire
     override fun getDefaultName(): Text = Text.translatable("entity.minecraft.falling_block_type", block.block.name)
     override fun entityDataRequiresOperator(): Boolean = true
 
@@ -357,6 +369,14 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             is ConcretePowderBlockAccessor -> if (ConcretePowderBlockAccessor.callShouldHarden(world, pos, currentStateInPos)) {
                 world.setBlockState(pos, block.hardenedState.defaultState, Block.NOTIFY_ALL)
             }
+        }
+        if (isOnFire && world.getBlockState(pos.up()).isAir) {
+            world.setBlockState(
+                pos.up(),
+                Blocks.FIRE.getPlacementState(
+                    AutomaticItemPlacementContext(world, pos.up(), Direction.DOWN, ItemStack.EMPTY, Direction.UP),
+                ),
+            )
         }
     }
 }

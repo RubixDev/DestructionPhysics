@@ -5,6 +5,7 @@
   "mixins": [
     "AbstractBlockMixin",
     "FallingBlockMixin",
+    "FireBlockMixin",
     "PersistentProjectileEntityMixin",
     "accessor.ConcretePowderBlockAccessor"
   ],
