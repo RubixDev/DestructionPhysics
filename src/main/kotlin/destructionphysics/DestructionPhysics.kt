@@ -8,10 +8,7 @@ import destructionphysics.registry.ModEntities
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.block.BlockState
-import net.minecraft.block.Blocks
-import net.minecraft.block.PistonBlock
-import net.minecraft.block.TntBlock
+import net.minecraft.block.*
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.text.Text
 import net.minecraft.util.math.BlockPos
@@ -72,29 +69,57 @@ object DestructionPhysics : ModInitializer {
         block !is TntBlock && PistonBlock.isMovable(this, world, pos, Direction.NORTH, true, Direction.NORTH)
 
     fun causeNeighboringToFall(world: World, origin: BlockPos) {
-        outer@ for (startPos in Direction.entries.map { origin.offset(it) }) {
-            val fallPositions = mutableSetOf<BlockPos>()
-            val ignorePositions = mutableSetOf<BlockPos>()
-            val queue = ArrayDeque<BlockPos>().apply { addLast(startPos) }
-            while (fallPositions.size <= MAX_CONNECTED_BLOCKS) {
-                val pos = queue.removeFirstOrNull() ?: break
-                if (fallPositions.contains(pos) || ignorePositions.contains(pos)) continue
-                val state = world.getBlockState(pos)
-                // TODO: which other blocks should count as air here?
-                if (state.isAir || state.isOf(Blocks.FIRE)) continue
-                if (state.canFall(world, pos)) {
-                    fallPositions.add(pos)
-                } else {
-                    ignorePositions.add(pos)
-                }
-                for (direction in Direction.entries) {
-                    queue.addLast(pos.offset(direction))
-                }
+        for (direction in Direction.entries) {
+            causeTouchingToFall(world, origin.offset(direction))
+        }
+    }
+
+    private fun causeTouchingToFall(
+        world: World,
+        startPos: BlockPos,
+        blockPredicate: (BlockState) -> Boolean = { true },
+        finalPredicate: (Set<BlockPos>) -> Boolean = { true },
+    ): Boolean {
+        val fallPositions = mutableSetOf<BlockPos>()
+        val ignorePositions = mutableSetOf<BlockPos>()
+        val queue = ArrayDeque<BlockPos>().apply { addLast(startPos) }
+        while (fallPositions.size <= MAX_CONNECTED_BLOCKS) {
+            val pos = queue.removeFirstOrNull() ?: break
+            if (fallPositions.contains(pos) || ignorePositions.contains(pos)) continue
+            val state = world.getBlockState(pos)
+            // TODO: which other blocks should count as air here?
+            if (state.isAir || state.isOf(Blocks.FIRE) || !blockPredicate(state)) continue
+            if (state.canFall(world, pos)) {
+                fallPositions.add(pos)
+            } else {
+                ignorePositions.add(pos)
             }
-            if (fallPositions.size == MAX_CONNECTED_BLOCKS + 1) continue@outer
-            for (pos in fallPositions) {
-                AdvancedFallingBlockEntity.spawnFromBlock(world, pos, world.getBlockState(pos))
+            for (direction in Direction.entries) {
+                queue.addLast(pos.offset(direction))
             }
+        }
+        if (fallPositions.size == MAX_CONNECTED_BLOCKS + 1 || !finalPredicate(fallPositions)) return false
+        for (pos in fallPositions.sortedBy { it.y }) {
+            AdvancedFallingBlockEntity.spawnFromBlock(world, pos, world.getBlockState(pos))
+        }
+        return true
+    }
+
+    @JvmStatic
+    fun makeTreeFall(world: World, origin: BlockPos, logType: Block) {
+        var leavesType: LeavesBlock? = null
+        var shouldDrop = false
+
+        for (direction in Direction.entries) {
+            causeTouchingToFall(world, origin.offset(direction), { state ->
+                if (leavesType == null) {
+                    leavesType = state.block as? LeavesBlock
+                }
+                val isCorrectLog = state.block == logType
+                val isCorrectLeaves = leavesType != null && (state.block == leavesType && !state.get(LeavesBlock.PERSISTENT))
+                if (isCorrectLeaves) shouldDrop = true
+                isCorrectLog || isCorrectLeaves
+            }, { shouldDrop })
         }
     }
 }
