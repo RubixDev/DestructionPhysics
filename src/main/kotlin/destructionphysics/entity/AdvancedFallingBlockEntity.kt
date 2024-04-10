@@ -105,8 +105,13 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
 
         @JvmStatic
         fun spawnFromFire(world: World, pos: BlockPos, state: BlockState, onFire: Boolean): AdvancedFallingBlockEntity? {
-            if (!FallingBlock.canFallThrough(world.getBlockState(pos.down()))) return null
-            if (!state.canFall(world, pos)) return null
+            if (
+                !FallingBlock.canFallThrough(world.getBlockState(pos.down()))
+                || !state.canFall(world, pos)
+            ) {
+                DestructionPhysics.causeNeighboringToFall(world, pos)
+                return null
+            }
             val entity = createFromBlock(world, pos, state)
             if (onFire) entity.setOnFireFor(100)
             world.spawnEntity(entity)
