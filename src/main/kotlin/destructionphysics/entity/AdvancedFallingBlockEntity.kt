@@ -39,10 +39,7 @@ import net.minecraft.state.property.Properties
 import net.minecraft.text.Text
 import net.minecraft.util.crash.CrashReportSection
 import net.minecraft.util.hit.HitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.math.MathHelper
-import net.minecraft.util.math.Vec3d
+import net.minecraft.util.math.*
 import net.minecraft.world.GameRules
 import net.minecraft.world.RaycastContext
 import net.minecraft.world.World
@@ -309,7 +306,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             if (canReplace(midState, midPos, direction)) {
                 val endPos = midPos.down()
                 val endState = world.getBlockState(endPos)
-                if (canReplace(endState, endPos)) {
+                if (canReplace(endState, endPos) && world.getEntitiesByClass(AdvancedFallingBlockEntity::class.java, Box.enclosing(midPos, endPos)) { true }.isEmpty()) {
                     slideDirection = direction.horizontal.toByte()
                     slidePos = blockPos
                     return true
