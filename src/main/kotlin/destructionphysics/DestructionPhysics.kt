@@ -73,6 +73,8 @@ object DestructionPhysics : ModInitializer {
         || isIn(ConventionalBlockTags.GLASS_BLOCKS)
         || isIn(ConventionalBlockTags.GLASS_PANES)
 
+    val Block.isVanillaFalling: Boolean get() = this is LandingBlock || this is ScaffoldingBlock
+
     fun causeNeighboringToFall(world: World, origin: BlockPos) {
         for (direction in Direction.entries) {
             causeTouchingToFall(world, origin.offset(direction))

@@ -6,6 +6,7 @@ import destructionphysics.DestructionPhysics
 import destructionphysics.DestructionPhysics.LOGGER
 import destructionphysics.DestructionPhysics.canFall
 import destructionphysics.DestructionPhysics.isBreakable
+import destructionphysics.DestructionPhysics.isVanillaFalling
 import destructionphysics.mixin.accessor.ConcretePowderBlockAccessor
 import destructionphysics.registry.ModEntities
 import net.minecraft.block.AnvilBlock
@@ -280,14 +281,19 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             velocity = velocity.multiply(0.7, -0.5, 0.7)
             if (!blockState.isOf(Blocks.MOVING_PISTON) && !world.isClient) {
                 if (!destroyedOnLanding) {
+                    val replaceTorch = blockState.isOf(Blocks.TORCH) && !block.isVanillaFalling
                     var canReplace = canReplace(blockState, blockPos)
-                    if (!canReplace && canReplace(world.getBlockState(blockPos.up()), blockPos.up())) {
+                    if (
+                        !canReplace
+                            && !blockState.isOf(Blocks.TORCH)
+                            && canReplace(world.getBlockState(blockPos.up()), blockPos.up())
+                    ) {
                         blockPos = blockPos.up()
                         canReplace = true
                     }
                     val canFallThrough = FallingBlock.canFallThrough(world.getBlockState(blockPos.down())) && (!isConcretePowder || !shouldConvert)
                     val canPlaceAt = this.block.canPlaceAt(world, blockPos) && !canFallThrough
-                    if (canReplace && canPlaceAt) {
+                    if ((canReplace || replaceTorch) && canPlaceAt) {
                         if (this.block.contains(Properties.WATERLOGGED) && world.getFluidState(blockPos).fluid == Fluids.WATER) {
                             this.block = this.block.with(Properties.WATERLOGGED, true)
                         }
@@ -295,6 +301,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                             (world as ServerWorld).chunkManager.threadedAnvilChunkStorage.sendToOtherNearbyPlayers(this, BlockUpdateS2CPacket(blockPos, world.getBlockState(blockPos)))
                             discard()
                             this.onLanding(block, blockPos, blockState)
+                            if (replaceTorch) dropItem(Blocks.TORCH)
                         } else if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
                             discard()
                             onDestroyedOnLanding(block, blockPos)
