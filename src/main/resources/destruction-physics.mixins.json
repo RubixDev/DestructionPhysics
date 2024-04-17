@@ -7,7 +7,6 @@
     "FallingBlockMixin",
     "FireBlockMixin",
     "ItemScattererMixin",
-    "PersistentProjectileEntityMixin",
     "WorldMixin",
     "accessor.ConcretePowderBlockAccessor"
   ],
