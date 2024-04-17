@@ -112,6 +112,17 @@ object DestructionPhysics : ModInitializer {
 
     @JvmStatic
     fun makeTreeFall(world: World, origin: BlockPos, logType: Block) {
+        // never recurse
+        if (Thread.currentThread().stackTrace.let { trace ->
+            val current = trace[1]
+            trace.slice(2..trace.lastIndex).any {
+                it.className == current.className
+                    && it.methodName == current.methodName
+            }
+        }) {
+            return
+        }
+
         var leavesType: LeavesBlock? = null
         var shouldDrop = false
 

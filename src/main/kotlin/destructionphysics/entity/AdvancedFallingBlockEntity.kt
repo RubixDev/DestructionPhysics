@@ -1,5 +1,7 @@
 package destructionphysics.entity
 
+import com.google.common.collect.BiMap
+import com.google.common.collect.HashBiMap
 import destructionphysics.DestructionPhysics
 import destructionphysics.DestructionPhysics.LOGGER
 import destructionphysics.DestructionPhysics.canFall
@@ -48,6 +50,7 @@ import net.minecraft.world.World
 import net.minecraft.world.WorldEvents
 import net.minecraft.world.event.GameEvent
 import net.minecraft.world.explosion.Explosion
+import java.util.*
 import kotlin.math.min
 
 class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(type, world) {
@@ -56,6 +59,8 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         private val SLIDE_DIRECTION = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.BYTE)
         private val SLIDE_PROGRESS = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.BYTE)
         private val SLIDE_COUNT = DataTracker.registerData(AdvancedFallingBlockEntity::class.java, TrackedDataHandlerRegistry.INTEGER)
+
+        private val targetSlidePositions: BiMap<BlockPos, UUID> = HashBiMap.create<BlockPos, UUID>()
 
         @JvmStatic
         fun createFromBlock(world: World, pos: BlockPos, state: BlockState): AdvancedFallingBlockEntity {
@@ -227,6 +232,9 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
 
             // TODO: timeFalling = 0?
             if (slideProgress.toInt() >= 4) {
+                if (!world.isClient && !freeEndPos()) {
+                    LOGGER.warn("end pos for $uuid had not been reserved")
+                }
                 slideProgress = -1
                 slideDirection = -1
                 velocity = Vec3d(0.0, -0.3, 0.0)
@@ -256,7 +264,13 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 return
             }
             // custom movement
-            if (!shouldConvert && !destroyedOnLanding && (oldVelocity.y < -0.4 || random.nextFloat() < 1f / ((slideCount / 80f) + 1f)) && slide()) {
+            if (
+                !world.isClient
+                    && !shouldConvert
+                    && !destroyedOnLanding
+                    && (oldVelocity.y < -0.4 || random.nextFloat() < 1f / ((slideCount / 80f) + 1f))
+                    && slide()
+            ) {
                 isOnGround = false
                 slideCount++
                 return
@@ -314,7 +328,11 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             if (canReplace(midState, midPos, direction)) {
                 val endPos = midPos.down()
                 val endState = world.getBlockState(endPos)
-                if (canReplace(endState, endPos) && world.getEntitiesByClass(AdvancedFallingBlockEntity::class.java, Box.enclosing(midPos, endPos)) { true }.isEmpty()) {
+                if (
+                    canReplace(endState, endPos)
+                        && world.getEntitiesByClass(AdvancedFallingBlockEntity::class.java, Box.enclosing(midPos, endPos)) { true }.isEmpty()
+                        && reserveEndPos(endPos)
+                ) {
                     slideDirection = direction.horizontal.toByte()
                     slidePos = blockPos
                     return true
@@ -397,4 +415,12 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             )
         }
     }
+
+    private fun reserveEndPos(pos: BlockPos): Boolean {
+        if (targetSlidePositions.contains(pos)) return false
+        targetSlidePositions[pos] = uuid
+        return true
+    }
+
+    private fun freeEndPos(): Boolean = targetSlidePositions.inverse().remove(uuid) != null
 }
