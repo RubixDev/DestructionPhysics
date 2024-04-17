@@ -280,7 +280,11 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             velocity = velocity.multiply(0.7, -0.5, 0.7)
             if (!blockState.isOf(Blocks.MOVING_PISTON) && !world.isClient) {
                 if (!destroyedOnLanding) {
-                    val canReplace = canReplace(blockState, blockPos)
+                    var canReplace = canReplace(blockState, blockPos)
+                    if (!canReplace && canReplace(world.getBlockState(blockPos.up()), blockPos.up())) {
+                        blockPos = blockPos.up()
+                        canReplace = true
+                    }
                     val canFallThrough = FallingBlock.canFallThrough(world.getBlockState(blockPos.down())) && (!isConcretePowder || !shouldConvert)
                     val canPlaceAt = this.block.canPlaceAt(world, blockPos) && !canFallThrough
                     if (canReplace && canPlaceAt) {
