@@ -7,6 +7,7 @@ import destructionphysics.entity.AdvancedFallingBlockEntity
 import destructionphysics.registry.ModEntities
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.tag.convention.v1.ConventionalBlockTags
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.block.*
 import net.minecraft.server.command.ServerCommandSource
@@ -67,6 +68,10 @@ object DestructionPhysics : ModInitializer {
 
     fun BlockState.canFall(world: World, pos: BlockPos): Boolean =
         block !is TntBlock && PistonBlock.isMovable(this, world, pos, Direction.NORTH, true, Direction.NORTH)
+
+    val BlockState.isBreakable: Boolean get() = block is LeavesBlock
+        || isIn(ConventionalBlockTags.GLASS_BLOCKS)
+        || isIn(ConventionalBlockTags.GLASS_PANES)
 
     fun causeNeighboringToFall(world: World, origin: BlockPos) {
         for (direction in Direction.entries) {

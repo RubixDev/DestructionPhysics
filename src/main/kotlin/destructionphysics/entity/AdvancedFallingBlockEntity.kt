@@ -3,6 +3,7 @@ package destructionphysics.entity
 import destructionphysics.DestructionPhysics
 import destructionphysics.DestructionPhysics.LOGGER
 import destructionphysics.DestructionPhysics.canFall
+import destructionphysics.DestructionPhysics.isBreakable
 import destructionphysics.mixin.accessor.ConcretePowderBlockAccessor
 import destructionphysics.registry.ModEntities
 import net.minecraft.block.AnvilBlock
@@ -13,6 +14,7 @@ import net.minecraft.block.BrushableBlock
 import net.minecraft.block.ConcretePowderBlock
 import net.minecraft.block.FallingBlock
 import net.minecraft.block.LandingBlock
+import net.minecraft.block.LeavesBlock
 import net.minecraft.block.PointedDripstoneBlock
 import net.minecraft.entity.Entity
 import net.minecraft.entity.EntityType
@@ -234,63 +236,69 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         if (!hasNoGravity()) {
             velocity = velocity.add(0.0, -0.04, 0.0)
         }
-        val yVelocity = velocity.y
+        val oldVelocity = velocity
         move(MovementType.SELF, velocity)
-        if (!world.isClient) {
-            var blockPos = blockPos
-            val isConcretePowder = block is ConcretePowderBlock
-            var shouldConvert = isConcretePowder && world.getFluidState(blockPos).isIn(FluidTags.WATER)
-            val blockHitResult = world.raycast(RaycastContext(Vec3d(prevX, prevY, prevZ), pos, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.SOURCE_ONLY, this))
-            if (isConcretePowder && velocity.lengthSquared() > 1.0 && blockHitResult.type != HitResult.Type.MISS && world.getFluidState(blockHitResult.blockPos).isIn(FluidTags.WATER)) {
-                blockPos = blockHitResult.blockPos
-                shouldConvert = true
-            }
-            if (isOnGround || shouldConvert) {
-                // custom movement
-                if (!shouldConvert && (yVelocity < -0.4 || random.nextFloat() < 1f / ((slideCount / 80f) + 1f)) && slide()) {
-                    isOnGround = false
-                    slideCount++
-                    return
-                }
 
-                val blockState = world.getBlockState(blockPos)
-                velocity = velocity.multiply(0.7, -0.5, 0.7)
-                if (!blockState.isOf(Blocks.MOVING_PISTON)) {
-                    if (!destroyedOnLanding) {
-                        val canReplace = canReplace(blockState, blockPos)
-                        val canFallThrough = FallingBlock.canFallThrough(world.getBlockState(blockPos.down())) && (!isConcretePowder || !shouldConvert)
-                        val canPlaceAt = this.block.canPlaceAt(world, blockPos) && !canFallThrough
-                        if (canReplace && canPlaceAt) {
-                            if (this.block.contains(Properties.WATERLOGGED) && world.getFluidState(blockPos).fluid == Fluids.WATER) {
-                                this.block = this.block.with(Properties.WATERLOGGED, true)
-                            }
-                            if (world.setBlockState(blockPos, this.block, Block.NOTIFY_ALL)) {
-                                (world as ServerWorld).chunkManager.threadedAnvilChunkStorage.sendToOtherNearbyPlayers(this, BlockUpdateS2CPacket(blockPos, world.getBlockState(blockPos)))
-                                discard()
-                                this.onLanding(block, blockPos, blockState)
-                            } else if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
-                                discard()
-                                onDestroyedOnLanding(block, blockPos)
-                                dropItem(block)
-                            }
-                        } else {
+        var blockPos = blockPos
+        val isConcretePowder = block is ConcretePowderBlock
+        var shouldConvert = isConcretePowder && world.getFluidState(blockPos).isIn(FluidTags.WATER)
+        val blockHitResult = world.raycast(RaycastContext(Vec3d(prevX, prevY, prevZ), pos, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.SOURCE_ONLY, this))
+        if (isConcretePowder && velocity.lengthSquared() > 1.0 && blockHitResult.type != HitResult.Type.MISS && world.getFluidState(blockHitResult.blockPos).isIn(FluidTags.WATER)) {
+            blockPos = blockHitResult.blockPos
+            shouldConvert = true
+        }
+        if (isOnGround || shouldConvert) {
+            // break certain blocks instead of landing on them
+            if (!shouldConvert && !destroyedOnLanding && world.getBlockState(blockPos.down()).isBreakable) {
+                isOnGround = false
+                world.breakBlock(blockPos.down(), true, this)
+                velocity = oldVelocity
+                return
+            }
+            // custom movement
+            if (!shouldConvert && !destroyedOnLanding && (oldVelocity.y < -0.4 || random.nextFloat() < 1f / ((slideCount / 80f) + 1f)) && slide()) {
+                isOnGround = false
+                slideCount++
+                return
+            }
+
+            val blockState = world.getBlockState(blockPos)
+            velocity = velocity.multiply(0.7, -0.5, 0.7)
+            if (!blockState.isOf(Blocks.MOVING_PISTON) && !world.isClient) {
+                if (!destroyedOnLanding) {
+                    val canReplace = canReplace(blockState, blockPos)
+                    val canFallThrough = FallingBlock.canFallThrough(world.getBlockState(blockPos.down())) && (!isConcretePowder || !shouldConvert)
+                    val canPlaceAt = this.block.canPlaceAt(world, blockPos) && !canFallThrough
+                    if (canReplace && canPlaceAt) {
+                        if (this.block.contains(Properties.WATERLOGGED) && world.getFluidState(blockPos).fluid == Fluids.WATER) {
+                            this.block = this.block.with(Properties.WATERLOGGED, true)
+                        }
+                        if (world.setBlockState(blockPos, this.block, Block.NOTIFY_ALL)) {
+                            (world as ServerWorld).chunkManager.threadedAnvilChunkStorage.sendToOtherNearbyPlayers(this, BlockUpdateS2CPacket(blockPos, world.getBlockState(blockPos)))
                             discard()
-                            if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
-                                onDestroyedOnLanding(block, blockPos)
-                                dropItem(block)
-                            }
+                            this.onLanding(block, blockPos, blockState)
+                        } else if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
+                            discard()
+                            onDestroyedOnLanding(block, blockPos)
+                            dropItem(block)
                         }
                     } else {
                         discard()
-                        onDestroyedOnLanding(block, blockPos)
+                        if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
+                            onDestroyedOnLanding(block, blockPos)
+                            dropItem(block)
+                        }
                     }
+                } else {
+                    discard()
+                    onDestroyedOnLanding(block, blockPos)
                 }
-            } else if (!(world.isClient || (timeFalling <= 100 || blockPos.y in world.bottomY + 1 .. world.topY) && timeFalling <= 600)) {
-                if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
-                    dropItem(block)
-                }
-                discard()
             }
+        } else if (!(world.isClient || (timeFalling <= 100 || blockPos.y in world.bottomY + 1 .. world.topY) && timeFalling <= 600)) {
+            if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
+                dropItem(block)
+            }
+            discard()
         }
         velocity = velocity.multiply(0.98)
     }
@@ -323,6 +331,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     }
 
     override fun handleFallDamage(fallDistance: Float, damageMultiplier: Float, damageSource: DamageSource?): Boolean {
+        if (block.isBreakable) destroyedOnLanding = true
         if (!hurtEntities) return false
         val i = MathHelper.ceil(fallDistance - 1f)
         if (i < 0) return false
@@ -359,7 +368,14 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             is PointedDripstoneBlock -> if (!isSilent) {
                 world.syncWorldEvent(WorldEvents.POINTED_DRIPSTONE_LANDS, pos, 0)
             }
-            // TODO: break glass on landing
+            else -> if (this.block.isBreakable) {
+                val vec3d = boundingBox.center
+                world.syncWorldEvent(WorldEvents.BLOCK_BROKEN, BlockPos.ofFloored(vec3d), Block.getRawIdFromState(this.block))
+                world.emitGameEvent(this, GameEvent.BLOCK_DESTROY, vec3d)
+                if (block is LeavesBlock && dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
+                    Block.dropStacks(this.block, world, pos)
+                }
+            }
         }
     }
 
