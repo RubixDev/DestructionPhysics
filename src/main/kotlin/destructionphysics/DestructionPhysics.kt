@@ -67,7 +67,7 @@ object DestructionPhysics : ModInitializer {
     }
 
     fun BlockState.canFall(world: World, pos: BlockPos): Boolean =
-        block !is TntBlock && PistonBlock.isMovable(this, world, pos, Direction.NORTH, true, Direction.NORTH)
+        block !is TntBlock && (PistonBlock.isMovable(this, world, pos, Direction.NORTH, true, Direction.NORTH) || hasBlockEntity())
 
     val BlockState.isBreakable: Boolean get() = block is LeavesBlock
         || isIn(ConventionalBlockTags.GLASS_BLOCKS)
@@ -107,7 +107,7 @@ object DestructionPhysics : ModInitializer {
         }
         if (fallPositions.size == MAX_CONNECTED_BLOCKS + 1 || !finalPredicate(fallPositions)) return false
         for (pos in fallPositions.sortedBy { it.y }) {
-            AdvancedFallingBlockEntity.spawnFromBlock(world, pos, world.getBlockState(pos))
+            AdvancedFallingBlockEntity.spawnFromBlock(world, pos, world.getBlockState(pos), world.getBlockEntity(pos)?.createNbt())
         }
         return true
     }

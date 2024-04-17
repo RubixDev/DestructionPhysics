@@ -1,7 +1,10 @@
 package destructionphysics.entity
 
+import destructionphysics.mixin.accessor.BlockRenderManagerAccessor
+import destructionphysics.mixin.accessor.BuiltinModelItemRendererAccessor
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
+import net.minecraft.block.BlockEntityProvider
 import net.minecraft.block.BlockRenderType
 import net.minecraft.client.render.OverlayTexture
 import net.minecraft.client.render.RenderLayers
@@ -35,11 +38,9 @@ class AdvancedFallingBlockEntityRenderer(ctx: EntityRendererFactory.Context) :
         vertexConsumers: VertexConsumerProvider,
         light: Int,
     ) {
-        // TODO: edit rendering
         val blockState = entity.block
-        if (blockState.renderType != BlockRenderType.MODEL) return
+        if (blockState.renderType == BlockRenderType.INVISIBLE) return
         val world = entity.world
-        if (blockState === world.getBlockState(entity.blockPos)) return
 
         matrices.push()
         val blockPos = BlockPos.ofFloored(entity.x, entity.boundingBox.maxY, entity.z)
@@ -56,6 +57,21 @@ class AdvancedFallingBlockEntityRenderer(ctx: EntityRendererFactory.Context) :
             blockState.getRenderingSeed(entity.slidePos),
             OverlayTexture.DEFAULT_UV,
         )
+        if (blockState.renderType == BlockRenderType.ENTITYBLOCK_ANIMATED) {
+            (blockState.block as? BlockEntityProvider)?.let { provider ->
+                val blockEntity = provider.createBlockEntity(BlockPos.ORIGIN, blockState) ?: return@let
+                try {
+                    blockEntity.readNbt(entity.blockEntityData)
+                } catch (_: Exception) {}
+                ((blockRenderManager as BlockRenderManagerAccessor).builtinModelItemRenderer as BuiltinModelItemRendererAccessor).blockEntityRenderDispatcher.renderEntity(
+                    blockEntity,
+                    matrices,
+                    vertexConsumers,
+                    light,
+                    OverlayTexture.DEFAULT_UV,
+                )
+            }
+        }
         matrices.pop()
         super.render(entity, yaw, tickDelta, matrices, vertexConsumers, light)
     }

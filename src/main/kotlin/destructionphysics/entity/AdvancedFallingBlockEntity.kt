@@ -64,7 +64,13 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         private val targetSlidePositions: BiMap<BlockPos, UUID> = HashBiMap.create<BlockPos, UUID>()
 
         @JvmStatic
-        fun createFromBlock(world: World, pos: BlockPos, state: BlockState): AdvancedFallingBlockEntity {
+        @JvmOverloads
+        fun createFromBlock(
+            world: World,
+            pos: BlockPos,
+            state: BlockState,
+            blockEntityData: NbtCompound? = null,
+        ): AdvancedFallingBlockEntity {
             LOGGER.debug("creating advanced falling block entity for block state '{}' at '{}'", state, pos)
             val entity = AdvancedFallingBlockEntity(
                 world,
@@ -73,11 +79,10 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                 pos.z.toDouble() + 0.5,
                 if (state.contains(Properties.WATERLOGGED)) state.with(Properties.WATERLOGGED, false) else state,
             )
-
             if (state.block is AnvilBlock) {
                 entity.setHurtEntities(2f, 40)
             }
-
+            entity.blockEntityData = blockEntityData
             return entity
         }
 
@@ -87,19 +92,27 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
             world: World,
             pos: BlockPos,
             state: BlockState,
+            blockEntityData: NbtCompound? = null,
             entityMutator: AdvancedFallingBlockEntity.() -> Unit = {},
         ): AdvancedFallingBlockEntity {
-            val entity = createFromBlock(world, pos, state)
+            val entity = createFromBlock(world, pos, state, blockEntityData)
             entityMutator(entity)
-            world.setBlockState(pos, state.fluidState.blockState, Block.NOTIFY_ALL)
+            world.setBlockState(pos, state.fluidState.blockState, Block.NOTIFY_ALL.or(Block.SKIP_DROPS))
             world.spawnEntity(entity)
             return entity
         }
 
         @JvmStatic
-        fun spawnFromExplosion(world: World, pos: BlockPos, state: BlockState, explosion: Explosion): AdvancedFallingBlockEntity? {
+        @JvmOverloads
+        fun spawnFromExplosion(
+            world: World,
+            pos: BlockPos,
+            state: BlockState,
+            explosion: Explosion,
+            blockEntityData: NbtCompound? = null,
+        ): AdvancedFallingBlockEntity? {
             if (!state.canFall(world, pos)) return null
-            return spawnFromBlock(world, pos, state) {
+            return spawnFromBlock(world, pos, state, blockEntityData) {
                 val flyDirection = this.pos.subtract(explosion.position)
                 // TODO: div by 0 check?
                 addVelocity(flyDirection.normalize().multiply(3 / flyDirection.length()))
@@ -145,6 +158,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
     private var hurtEntities = false
     private var fallHurtAmount = 0f
     private var fallHurtMax = 40
+    var blockEntityData: NbtCompound? = null
 
     private constructor(world: World?, x: Double, y: Double, z: Double, block: BlockState) : this(ModEntities.ADVANCED_FALLING_BLOCK_ENTITY, world) {
         this.block = block
@@ -178,6 +192,9 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         } else if (block.isIn(BlockTags.ANVIL)) {
             hurtEntities = true
         }
+        if (nbt.contains("TileEntityData", NbtElement.COMPOUND_TYPE.toInt())) {
+            blockEntityData = nbt.getCompound("TileEntityData").copy()
+        }
     }
 
     override fun writeCustomDataToNbt(nbt: NbtCompound) {
@@ -188,6 +205,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
         nbt.putBoolean("HurtEntities", hurtEntities)
         nbt.putFloat("FallHurtAmount", fallHurtAmount)
         nbt.putInt("FallHurtMax", fallHurtMax)
+        if (blockEntityData != null) nbt.put("TileEntityData", blockEntityData)
     }
 
     override fun createSpawnPacket(): Packet<ClientPlayPacketListener> {
@@ -302,6 +320,21 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                             discard()
                             this.onLanding(block, blockPos, blockState)
                             if (replaceTorch) dropItem(Blocks.TORCH)
+                            blockEntityData?.let { data ->
+                                val blockEntity = world.getBlockEntity(blockPos)
+                                if (this.block.hasBlockEntity() && blockEntity != null) {
+                                    val nbt = blockEntity.createNbt()
+                                    for (key in data.keys) {
+                                        nbt.put(key, data.get(key)?.copy())
+                                    }
+                                    try {
+                                        blockEntity.readNbt(nbt)
+                                    } catch (e: Exception) {
+                                        LOGGER.error("Failed to load block entity from falling block", e)
+                                    }
+                                    blockEntity.markDirty()
+                                }
+                            }
                         } else if (dropItem && world.gameRules.getBoolean(GameRules.DO_ENTITY_DROPS)) {
                             discard()
                             onDestroyedOnLanding(block, blockPos)

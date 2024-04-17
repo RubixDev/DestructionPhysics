@@ -6,11 +6,17 @@
     "AbstractBlockMixin",
     "FallingBlockMixin",
     "FireBlockMixin",
+    "ItemScattererMixin",
     "PersistentProjectileEntityMixin",
     "WorldMixin",
     "accessor.ConcretePowderBlockAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
-	}
+  },
+  "client": [
+    "ChestBlockEntityRendererMixin",
+    "accessor.BlockRenderManagerAccessor",
+    "accessor.BuiltinModelItemRendererAccessor"
+  ]
 }
