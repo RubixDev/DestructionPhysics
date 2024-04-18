@@ -304,6 +304,7 @@ class AdvancedFallingBlockEntity(type: EntityType<*>?, world: World?) : Entity(t
                     if (
                         !canReplace
                             && !blockState.isOf(Blocks.TORCH)
+                            && !block.isVanillaFalling
                             && canReplace(world.getBlockState(blockPos.up()), blockPos.up())
                     ) {
                         blockPos = blockPos.up()
