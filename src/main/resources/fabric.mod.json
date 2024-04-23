@@ -3,15 +3,15 @@
 	"id": "destruction-physics",
 	"version": "${version}",
 	"name": "Destruction Physics",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Some physics tweaks to falling blocks",
 	"authors": [
 		"RubixDev"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/RubixDev/DestructionPhysics",
+		"sources": "https://github.com/RubixDev/DestructionPhysics"
 	},
-	"license": "CC0-1.0",
+	"license": "All Rights Reserved",
 	"icon": "assets/destruction-physics/icon.png",
 	"environment": "*",
 	"entrypoints": {
